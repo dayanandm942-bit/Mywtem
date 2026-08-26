@@ -5,21 +5,23 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
+    timeout-minutes: 360
+
     steps:
       - name: Download and Setup Ngrok
         run: |
           Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
           Expand-Archive ngrok.zip
-          ./ngrok/ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          .\ngrok\ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-      - name: Enable RDP Access
+      - name: Enable Remote Desktop
         run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
 
-      - name: Create RDP User
+      - name: Create User Account
         run: |
           net user AdminUser Password12345! /add
           net localgroup administrators AdminUser /add
@@ -28,10 +30,9 @@ jobs:
         run: |
           Start-Process -FilePath ".\ngrok\ngrok.exe" -ArgumentList "tcp 3389"
           Start-Sleep -Seconds 10
-          $response = Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels
-          $public_url = $response.tunnels[0].public_url
+          $tunnel = (Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels").tunnels[0].public_url
           Write-Host "=========================================="
-          Write-Host "RDP Address: $public_url"
+          Write-Host "RDP Address: $tunnel"
           Write-Host "Username: AdminUser"
           Write-Host "Password: Password12345!"
           Write-Host "=========================================="
